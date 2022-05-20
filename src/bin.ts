@@ -3,8 +3,9 @@
 import spawn from 'cross-spawn'
 import fs from 'fs-extra'
 import json5 from 'json5'
-import { EOL } from 'os'
-import { resolve } from 'path'
+import { CompilerOptions } from 'typescript'
+import { join } from 'path'
+import { bundle } from '.'
 
 const cwd = process.cwd()
 const args = process.argv.slice(2)
@@ -16,17 +17,17 @@ export function spawnAsync(args: string[]) {
   })
 }
 
-async function compile(filename: string) {
+export async function compile(filename: string) {
   const code = await spawnAsync(['tsc', '-b', ...args])
   if (code) process.exit(code)
   return fs.readFile(filename, 'utf8')
 }
 
-async function getModules(path: string, prefix = ''): Promise<string[]> {
+export async function getModules(path: string, prefix = ''): Promise<string[]> {
   const files = await fs.readdir(path, { withFileTypes: true })
   return [].concat(...await Promise.all(files.map(async (file) => {
     if (file.isDirectory()) {
-      return getModules(resolve(path, file.name), `${prefix}${file.name}/`)
+      return getModules(join(path, file.name), `${prefix}${file.name}/`)
     } else if (file.name.endsWith('.ts')) {
       return [prefix + file.name.slice(0, -3)]
     } else {
@@ -35,132 +36,26 @@ async function getModules(path: string, prefix = ''): Promise<string[]> {
   })))
 }
 
-async function bundle() {
-  const meta = require(resolve(cwd, 'package.json'))
-  const config = json5.parse(fs.readFileSync(resolve(cwd, 'tsconfig.json'), 'utf8'))
-  const { outFile, rootDir } = config.compilerOptions
+(async () => {
+  const cwd = process.cwd()
+  const meta = require(join(cwd, 'package.json'))
+  const config = json5.parse(await fs.readFile(join(cwd, 'tsconfig.json'), 'utf8'))
+  const { outFile, rootDir } = config.compilerOptions as CompilerOptions
+  const { inline = [] } = config.dtsc || {}
 
   const srcpath = `${cwd.replace(/\\/g, '/')}/${rootDir}`
-  const [files, content] = await Promise.all([
+  const [files, input] = await Promise.all([
     getModules(srcpath),
-    compile(resolve(cwd, outFile)),
+    compile(join(cwd, outFile)),
   ])
-
-  const moduleRE = `["'](${files.join('|')})["']`
-  const internalImport = new RegExp('import\\(' + moduleRE + '\\)\\.', 'g')
-  const internalExport = new RegExp('^ {4}export .+ from ' + moduleRE + ';$')
-  const internalInject = new RegExp('^declare module ' + moduleRE + ' {$')
-  const importMap: Record<string, Record<string, string>> = {}
-  const namespaceMap: Record<string, string> = {}
-
-  let prolog = '', cap: RegExpExecArray
-  let current: string, temporary: string[]
-  let identifier: string, isExportDefault: boolean
-  const platforms: Record<string, Record<string, string[]>> = {}
-  const output = content.split(EOL).filter((line) => {
-    // Step 1: collect informations
-    if (isExportDefault) {
-      if (line === '    }') isExportDefault = false
-      return false
-    } else if (temporary) {
-      if (line === '}') return temporary = null
-      temporary.push(line)
-    } else if (cap = /^declare module ["'](.+)["'] \{( \})?$/.exec(line)) {
-      //                                  ^1
-      // ignore empty module declarations
-      if (cap[2]) return temporary = null
-      current = cap[1]
-      const segments = current.split(/\//g)
-      const lastName = segments.pop()
-      if (['node', 'browser'].includes(lastName) && segments.length) {
-        temporary = (platforms[segments.join('/')] ||= {})[lastName] = []
-      } else {
-        return true
-      }
-    } else if (cap = /^ {4}import ["'](.+)["'];$/.exec(line)) {
-      //                       ^1
-      // import module directly
-      if (!files.includes(cap[1])) prolog += line.trimStart() + EOL
-    } else if (cap = /^ {4}import \* as (.+) from ["'](.+)["'];$/.exec(line)) {
-      //                                ^1            ^2
-      // import as namespace
-      if (files.includes(cap[2])) {
-        // mark internal module as namespace
-        namespaceMap[cap[2]] = cap[1]
-      } else if (!prolog.includes(line.trimStart())) {
-        // preserve external module imports once
-        prolog += line.trimStart() + EOL
-      }
-    } else if (cap = /^ {4}import (\S*)(?:, *)?(?:\{(.+)\})? from ["'](.+)["'];$/.exec(line)) {
-      //                          ^1                ^2                ^3
-      // ignore internal imports
-      if (files.includes(cap[3])) return
-      // handle aliases from external imports
-      const map = importMap[cap[3]] ||= {}
-      cap[1] && Object.defineProperty(map, 'default', { value: cap[1] })
-      cap[2] && cap[2].split(',').map((part) => {
-        part = part.trim()
-        if (part.includes(' as ')) {
-          const [left, right] = part.split(' as ')
-          map[left.trimEnd()] = right.trimStart()
-        } else {
-          map[part] = part
-        }
-      })
-    } else if (line.startsWith('///')) {
-      prolog += line + EOL
-    } else if (line.startsWith('    export default ')) {
-      if (current === 'index') return true
-      if (line.endsWith('{')) isExportDefault = true
-      return false
-    } else {
-      return line.trim() !== 'export {};'
-    }
-  }).map((line) => {
-    // Step 2: flatten module declarations
-    if (cap = /^declare module ["'](.+)["'] \{$/.exec(line)) {
-      if (identifier = namespaceMap[cap[1]]) {
-        return `declare namespace ${identifier} {`
-      } else {
-        return ''
-      }
-    } else if (line === '}') {
-      return identifier ? '}' : ''
-    } else if (!internalExport.exec(line)) {
-      if (!identifier) line = line.slice(4)
-      return line
-        .replace(internalImport, '')
-        .replace(/import\("index"\)/g, "import('.')")
-        .replace(/^(module|class|namespace|const) /, (_) => `declare ${_}`)
-    } else {
-      return ''
-    }
-  }).map((line) => {
-    if (cap = internalInject.exec(line)) {
-      identifier = '@internal'
-      return ''
-    } else if (line === '}') {
-      return identifier ? identifier = '' : '}'
-    } else {
-      if (identifier) line = line.slice(4)
-      return line.replace(/^((class|namespace|interface) .+ \{)$/, (_) => `export ${_}`)
-    }
-  }).filter(line => line).join(EOL)
-
-  Object.entries(importMap).forEach(([name, map]) => {
-    const output: string[] = []
-    const entries = Object.entries(map)
-    if (map.default) output.push(map.default)
-    if (entries.length) {
-      output.push('{ ' + entries.map(([left, right]) => {
-        if (left === right) return left
-        return `${left} as ${right}`
-      }).join(', ') + ' }')
-    }
-    prolog += `import ${output.join(', ')} from '${name}';${EOL}`
-  })
-
-  return fs.writeFile(resolve(cwd, meta.typings || meta.types), prolog + output + EOL)
-}
-
-bundle()
+  files.push(...inline)
+  let source = input
+  for (let extra of inline) {
+    const meta = require(extra + '/package.json')
+    const filename = join(extra, meta.typings || meta.types)
+    const content = await fs.readFile(require.resolve(filename), 'utf8')
+    source += [`declare module "${extra}" {`, ...content.split('\n')].join('\n    ') + '\n}\n'
+  }
+  let output = await bundle({ files, source })
+  await fs.writeFile(join(cwd, meta.typings || meta.types), output)
+})()

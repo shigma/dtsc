@@ -11,6 +11,6 @@ Generate bundled TypeScript declaration files.
 
 This package uses a string-based approach to generate bundle from a .d.ts file. It has some limitations:
 
-- no support for `incremental`
+- If you find one, welcome to report an issue.
 
 <!-- In most cases I would recommend using tsc directly. -->

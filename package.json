@@ -1,7 +1,7 @@
 {
   "name": "dtsc",
   "description": "Generate bundled TypeScript declaration files",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "main": "lib/index.js",
   "bin": "lib/bin.js",
   "files": [
@@ -17,6 +17,9 @@
   "homepage": "https://github.com/shigma/dtsc",
   "author": "Shigma <shigma10826@gmail.com>",
   "license": "MIT",
+  "scripts": {
+    "build": "tsc -b"
+  },
   "devDependencies": {
     "@types/cross-spawn": "^6.0.2",
     "@types/fs-extra": "^9.0.13",

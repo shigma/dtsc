@@ -1,7 +1,6 @@
 #!/usr/bin/env node
 
 import spawn from 'cross-spawn'
-import globby from 'globby'
 import fs from 'fs-extra'
 import json5 from 'json5'
 import { EOL } from 'os'
@@ -23,12 +22,21 @@ async function compile(filename: string) {
   return fs.readFile(filename, 'utf8')
 }
 
-async function getModules(srcpath: string) {
-  const files = await globby(srcpath)
-  return files.map(file => file.slice(srcpath.length + 1, -3))
+async function getModules(path: string, prefix = ''): Promise<string[]> {
+  const files = await fs.readdir(path, { withFileTypes: true })
+  return [].concat(...await Promise.all(files.map(async (file) => {
+    if (file.isDirectory()) {
+      return getModules(resolve(path, file.name), `${prefix}${file.name}/`)
+    } else if (file.name.endsWith('.ts')) {
+      return [prefix + file.name.slice(0, -3)]
+    } else {
+      return []
+    }
+  })))
 }
 
 async function bundle() {
+  const meta = require(resolve(cwd, 'package.json'))
   const config = json5.parse(fs.readFileSync(resolve(cwd, 'tsconfig.json'), 'utf8'))
   const { outFile, rootDir } = config.compilerOptions
 
@@ -152,7 +160,7 @@ async function bundle() {
     prolog += `import ${output.join(', ')} from '${name}';${EOL}`
   })
 
-  return fs.writeFile(resolve(cwd, 'lib/index.d.ts'), prolog + output + EOL)
+  return fs.writeFile(resolve(cwd, meta.typings || meta.types), prolog + output + EOL)
 }
 
 bundle()

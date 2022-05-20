@@ -1,0 +1,21 @@
+{
+  "name": "dtsc",
+  "description": "Generate bundled TypeScript declaration files",
+  "version": "0.1.0",
+  "main": "lib/index.cjs",
+  "module": "lib/index.ejs",
+  "typings": "lib/index.d.ts",
+  "files": [
+    "lib"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/shigma/dtsc.git"
+  },
+  "bugs": {
+    "url": "https://github.com/shigma/dtsc/issues"
+  },
+  "homepage": "https://github.com/shigma/dtsc",
+  "author": "Shigma <shigma10826@gmail.com>",
+  "license": "MIT"
+}

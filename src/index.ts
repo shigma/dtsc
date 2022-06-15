@@ -93,7 +93,7 @@ export async function bundle(options: BundleOptions) {
       return line
         .replace(internalImport, '')
         .replace(/import\("index"\)/g, "import('.')")
-        .replace(/^(module|class|namespace|const) /, (_) => `declare ${_}`)
+        .replace(/^(module|class|namespace|const|global) /, (_) => `declare ${_}`)
     } else {
       return ''
     }

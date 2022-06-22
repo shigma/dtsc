@@ -19,7 +19,7 @@ export async function bundle(options: BundleOptions) {
   let current: string, temporary: string[]
   let identifier: string, isExportDefault: boolean
   const platforms: Record<string, Record<string, string[]>> = {}
-  const output = source.split(EOL).filter((line) => {
+  const output = source.split(/\r?\n/g).filter((line) => {
     // Step 1: collect informations
     if (isExportDefault) {
       if (line === '    }') isExportDefault = false

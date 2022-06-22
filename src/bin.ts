@@ -3,6 +3,7 @@
 import spawn from 'cross-spawn'
 import fs from 'fs-extra'
 import json5 from 'json5'
+import { createRequire } from 'module'
 import { CompilerOptions } from 'typescript'
 import { join } from 'path'
 import { bundle } from '.'
@@ -38,7 +39,8 @@ export async function getModules(path: string, prefix = ''): Promise<string[]> {
 
 (async () => {
   const cwd = process.cwd()
-  const meta = require(join(cwd, 'package.json'))
+  const require = createRequire(cwd + '/')
+  const meta = require('./package.json')
   const config = json5.parse(await fs.readFile(join(cwd, 'tsconfig.json'), 'utf8'))
   const { outFile, rootDir } = config.compilerOptions as CompilerOptions
   const { inline = [] } = config.dtsc || {}
@@ -56,6 +58,6 @@ export async function getModules(path: string, prefix = ''): Promise<string[]> {
     const content = await fs.readFile(require.resolve(filename), 'utf8')
     source += [`declare module "${extra}" {`, ...content.split('\n')].join('\n    ') + '\n}\n'
   }
-  let output = await bundle({ files, source })
+  const output = await bundle({ files, source })
   await fs.writeFile(join(cwd, meta.typings || meta.types), output)
 })()

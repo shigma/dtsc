@@ -18,10 +18,17 @@ export function spawnAsync(args: string[]) {
   })
 }
 
-export async function compile(filename: string) {
-  const code = await spawnAsync(['tsc', '-b', ...args])
+export async function compile(args: string[]) {
+  const code = await spawnAsync(['tsc', ...args])
   if (code) process.exit(code)
-  return fs.readFile(filename, 'utf8')
+}
+
+export async function compileToFile(filename: string) {
+  filename = filename.replace(/\.d\.ts$/, '') + '.tmp.d.ts'
+  await compile(['--outFile', filename, ...args])
+  const content = await fs.readFile(filename, 'utf8')
+  await fs.rm(filename)
+  return content
 }
 
 export async function getModules(path: string, prefix = ''): Promise<string[]> {
@@ -40,24 +47,27 @@ export async function getModules(path: string, prefix = ''): Promise<string[]> {
 (async () => {
   const cwd = process.cwd()
   const require = createRequire(cwd + '/')
-  const meta = require('./package.json')
   const config = json5.parse(await fs.readFile(join(cwd, 'tsconfig.json'), 'utf8'))
   const { outFile, rootDir } = config.compilerOptions as CompilerOptions
-  const { inline = [] } = config.dtsc || {}
+  if (!outFile) return compile(args)
 
   const srcpath = `${cwd.replace(/\\/g, '/')}/${rootDir}`
+  const destpath = join(cwd, outFile)
   const [files, input] = await Promise.all([
     getModules(srcpath),
-    compile(join(cwd, outFile)),
+    compileToFile(destpath),
   ])
-  files.push(...inline)
+
   let source = input
+  const { inline = [] } = config.dtsc || {}
+  files.push(...inline)
   for (let extra of inline) {
     const meta = require(extra + '/package.json')
     const filename = join(extra, meta.typings || meta.types)
     const content = await fs.readFile(require.resolve(filename), 'utf8')
     source += [`declare module "${extra}" {`, ...content.split('\n')].join('\n    ') + '\n}\n'
   }
+
   const output = await bundle({ files, source })
-  await fs.writeFile(join(cwd, meta.typings || meta.types), output)
+  await fs.writeFile(destpath, output)
 })()

@@ -3,7 +3,7 @@ import fs from 'fs-extra'
 import json5 from 'json5'
 import { createRequire } from 'module'
 import { CompilerOptions } from 'typescript'
-import { join } from 'path'
+import { join, resolve } from 'path'
 import { bundle } from './bundle'
 import { SpawnOptions } from 'child_process'
 
@@ -40,14 +40,22 @@ async function getModules(path: string, prefix = ''): Promise<string[]> {
   })))
 }
 
+function locate(args: string[]) {
+  const index = args.findIndex(arg => arg === '-p' || arg === '--project')
+  if (index >= 0) return args[index + 1]
+  args.push('-p', '.')
+  return 'tsconfig.json'
+}
+
 export async function build(cwd: string, args: string[] = []) {
   const require = createRequire(cwd + '/')
-  const config = json5.parse(await fs.readFile(join(cwd, 'tsconfig.json'), 'utf8'))
+  const filename = locate(args)
+  const config = json5.parse(await fs.readFile(resolve(cwd, filename), 'utf8'))
   const { outFile, rootDir } = config.compilerOptions as CompilerOptions
   if (!outFile) return compile(args, { cwd })
 
   const srcpath = `${cwd.replace(/\\/g, '/')}/${rootDir}`
-  const destpath = join(cwd, outFile)
+  const destpath = resolve(cwd, outFile)
   const [files, input] = await Promise.all([
     getModules(srcpath),
     compileToFile(destpath, args, { cwd }),

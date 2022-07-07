@@ -61,8 +61,12 @@ dtsc supports `outFile` option out of the box.
 // tsconfig.json
 {
   "compilerOptions": {
+    "rootDir": "src",
     "outFile": "lib/index.d.ts",
   },
+  "include": [
+    "src",
+  ],
 }
 ```
 

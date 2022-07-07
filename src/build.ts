@@ -40,22 +40,25 @@ async function getModules(path: string, prefix = ''): Promise<string[]> {
   })))
 }
 
-function locate(args: string[]) {
-  const index = args.findIndex(arg => arg === '-p' || arg === '--project')
+function getArg(args: string[], names: string[], fallback: () => string) {
+  const index = args.findIndex(arg => names.some(name => arg.toLowerCase() === name))
   if (index >= 0) return args[index + 1]
-  args.push('-p', '.')
-  return 'tsconfig.json'
+  return fallback()
 }
 
 export async function build(cwd: string, args: string[] = []) {
   const require = createRequire(cwd + '/')
-  const filename = locate(args)
+  const filename = getArg(args, ['-p', '--project'], () => {
+    args.push('-p', '.')
+    return 'tsconfig.json'
+  })
+
   const config = json5.parse(await fs.readFile(resolve(cwd, filename), 'utf8'))
   const { outFile, rootDir } = config.compilerOptions as CompilerOptions
   if (!outFile) return compile(args, { cwd })
 
   const srcpath = `${cwd.replace(/\\/g, '/')}/${rootDir}`
-  const destpath = resolve(cwd, outFile)
+  const destpath = resolve(cwd, getArg(args, ['--outfile'], () => outFile))
   const [files, input] = await Promise.all([
     getModules(srcpath),
     compileToFile(destpath, args, { cwd }),

@@ -21,7 +21,14 @@ async function compile(args: string[], options: SpawnOptions) {
 
 async function compileToFile(filename: string, args: string[], options: SpawnOptions) {
   filename = filename.replace(/\.d\.ts$/, '') + '.tmp.d.ts'
-  await compile(['--outFile', filename, ...args], options)
+  takeArg(args, ['--composite'])
+  takeArg(args, ['--incremental'])
+  await compile([
+    '--outFile', filename,
+    '--composite', 'false',
+    '--incremental', 'false',
+    ...args,
+  ], options)
   const content = await fs.readFile(filename, 'utf8')
   await fs.rm(filename)
   return content
@@ -40,25 +47,29 @@ async function getModules(path: string, prefix = ''): Promise<string[]> {
   })))
 }
 
-function getArg(args: string[], names: string[], fallback: () => string) {
+function takeArg(args: string[], names: string[], fallback?: () => string, preserve = false) {
   const index = args.findIndex(arg => names.some(name => arg.toLowerCase() === name))
-  if (index >= 0) return args[index + 1]
-  return fallback()
+  if (index < 0) return fallback?.()
+  const value = args[index + 1]
+  if (!preserve) {
+    args.splice(index, 2)
+  }
+  return value
 }
 
 export async function build(cwd: string, args: string[] = []) {
   const require = createRequire(cwd + '/')
-  const filename = getArg(args, ['-p', '--project'], () => {
+  const filename = takeArg(args, ['-p', '--project'], () => {
     args.push('-p', '.')
     return 'tsconfig.json'
-  })
+  }, true)
 
   const config = json5.parse(await fs.readFile(resolve(cwd, filename), 'utf8'))
   const { outFile, rootDir } = config.compilerOptions as CompilerOptions
   if (!outFile) return compile(args, { cwd })
 
   const srcpath = `${cwd.replace(/\\/g, '/')}/${rootDir}`
-  const destpath = resolve(cwd, getArg(args, ['--outfile'], () => outFile))
+  const destpath = resolve(cwd, takeArg(args, ['--outfile'], () => outFile))
   const [files, input] = await Promise.all([
     getModules(srcpath),
     compileToFile(destpath, args, { cwd }),

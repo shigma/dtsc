@@ -1,28 +1,24 @@
-import spawn from 'cross-spawn'
 import fs from 'fs-extra'
-import json5 from 'json5'
+import tsconfig, { compile, option } from 'tsconfig-utils'
 import { createRequire } from 'module'
-import { CompilerOptions } from 'typescript'
 import { join, resolve } from 'path'
 import { bundle } from './bundle'
 import { SpawnOptions } from 'child_process'
 
-function spawnAsync(args: string[], options: SpawnOptions) {
-  const child = spawn(args[0], args.slice(1), { ...options, stdio: 'inherit' })
-  return new Promise<number>((resolve) => {
-    child.on('close', resolve)
-  })
+declare module 'tsconfig-utils' {
+  interface tsconfig {
+    dtsc: Config
+  }
 }
 
-async function compile(args: string[], options: SpawnOptions) {
-  const code = await spawnAsync(['tsc', ...args], options)
-  if (code) process.exit(code)
+export interface Config {
+  inline?: string[]
 }
 
-async function compileToFile(filename: string, args: string[], options: SpawnOptions) {
+async function compileToFile(filename: string, args: string[], options?: SpawnOptions) {
   filename = filename.replace(/\.d\.ts$/, '') + '.tmp.d.ts'
-  takeArg(args, ['--composite'])
-  takeArg(args, ['--incremental'])
+  option(args, ['--composite'])
+  option(args, ['--incremental'])
   await compile([
     '--outFile', filename,
     '--composite', 'false',
@@ -47,29 +43,19 @@ async function getModules(path: string, prefix = ''): Promise<string[]> {
   })))
 }
 
-function takeArg(args: string[], names: string[], fallback?: () => string, preserve = false) {
-  const index = args.findIndex(arg => names.some(name => arg.toLowerCase() === name))
-  if (index < 0) return fallback?.()
-  const value = args[index + 1]
-  if (!preserve) {
-    args.splice(index, 2)
-  }
-  return value
-}
-
 export async function build(cwd: string, args: string[] = []) {
   const require = createRequire(cwd + '/')
-  const filename = takeArg(args, ['-p', '--project'], () => {
+  const filename = option(args, ['-p', '--project'], () => {
     args.push('-p', '.')
     return 'tsconfig.json'
   }, true)
 
-  const config = json5.parse(await fs.readFile(resolve(cwd, filename), 'utf8'))
-  const { outFile, rootDir } = config.compilerOptions as CompilerOptions
-  if (!outFile) return compile(args, { cwd })
+  const config = await tsconfig(resolve(cwd, filename))
+  const { outFile, rootDir } = config.compilerOptions
+  if (!outFile) return compile(args)
 
   const srcpath = `${cwd.replace(/\\/g, '/')}/${rootDir}`
-  const destpath = resolve(cwd, takeArg(args, ['--outfile'], () => outFile))
+  const destpath = resolve(cwd, option(args, ['--outfile'], () => outFile))
   const [files, input] = await Promise.all([
     getModules(srcpath),
     compileToFile(destpath, args, { cwd }),

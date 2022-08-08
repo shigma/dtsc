@@ -91,3 +91,7 @@ This package uses a string-based approach to generate bundle from a .d.ts file. 
 - If you find one, welcome to report an issue.
 
 <!-- In most cases I would recommend using tsc directly. -->
+
+## See also
+
+- [atsc](https://github.com/shigma/atsc): augment tsc with non-typescript files support

@@ -3,10 +3,11 @@ import { EOL } from 'os'
 export interface BundleOptions {
   files: string[]
   source: string
+  exclude?: string[]
 }
 
 export async function bundle(options: BundleOptions) {
-  const { files, source } = options
+  const { files, source, exclude = [] } = options
 
   const moduleRE = `["'](${files.join('|')})["']`
   const internalImport = new RegExp('import\\(' + moduleRE + '\\)\\.', 'g')
@@ -31,6 +32,7 @@ export async function bundle(options: BundleOptions) {
       //                                  ^1
       // ignore empty module declarations
       if (cap[2]) return temporary = null
+      if (exclude.includes(cap[1])) return temporary = null
       current = cap[1]
       const segments = current.split(/\//g)
       const lastName = segments.pop()

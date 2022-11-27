@@ -1,7 +1,7 @@
 {
   "name": "dtsc",
   "description": "Generate bundled TypeScript declaration files",
-  "version": "2.2.3",
+  "version": "2.2.4",
   "main": "lib/index.js",
   "bin": "lib/bin.js",
   "files": [

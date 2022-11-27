@@ -12,6 +12,7 @@ declare module 'tsconfig-utils' {
 
 export interface Config {
   inline?: string[]
+  exclude?: string[]
 }
 
 async function compileToFile(filename: string, config: TsConfig) {
@@ -55,7 +56,7 @@ export async function build(cwd: string, args: string[] = []) {
   ])
 
   let source = input
-  const { inline = [] } = config.dtsc || {}
+  const { inline = [], exclude = [] } = config.dtsc || {}
   files.push(...inline)
   for (let extra of inline) {
     const meta = require(extra + '/package.json')
@@ -64,6 +65,6 @@ export async function build(cwd: string, args: string[] = []) {
     source += [`declare module "${extra}" {`, ...content.split('\n')].join('\n    ') + '\n}\n'
   }
 
-  const output = await bundle({ files, source })
+  const output = await bundle({ files, source, exclude })
   await fs.writeFile(destpath, output)
 }

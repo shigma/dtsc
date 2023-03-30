@@ -21,7 +21,8 @@ async function compileToFile(filename: string, config: TsConfig) {
   config.set('outFile', filename)
   config.set('composite', 'false')
   config.set('incremental', 'false')
-  await compile(config.args, { cwd: config.cwd })
+  const code = await compile(config.args, { cwd: config.cwd })
+  if (code) process.exit(code)
   const content = await fs.readFile(filename, 'utf8')
   await fs.rm(filename)
   return content

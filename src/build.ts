@@ -2,7 +2,7 @@ import fs from 'fs/promises'
 import { compile, load, TsConfig } from 'tsconfig-utils'
 import { createRequire } from 'module'
 import { join, resolve } from 'path'
-import { bundle } from './bundle'
+import { bundle } from './bundle.js'
 
 declare module 'tsconfig-utils' {
   interface TsConfig {
@@ -30,7 +30,7 @@ async function compileToFile(filename: string, config: TsConfig) {
 
 async function getModules(path: string, prefix = ''): Promise<string[]> {
   const files = await fs.readdir(path, { withFileTypes: true })
-  return [].concat(...await Promise.all(files.map(async (file) => {
+  return ([] as string[]).concat(...await Promise.all(files.map(async (file) => {
     if (file.isDirectory()) {
       return getModules(join(path, file.name), `${prefix}${file.name}/`)
     } else if (file.name.endsWith('.ts')) {
@@ -59,7 +59,7 @@ export async function build(cwd: string, args: string[] = []) {
   let source = input
   const { inline = [], exclude = [] } = config.dtsc || {}
   files.push(...inline)
-  for (let extra of inline) {
+  for (const extra of inline) {
     const meta = require(extra + '/package.json')
     const filename = join(extra, meta.typings || meta.types)
     const content = await fs.readFile(require.resolve(filename), 'utf8')

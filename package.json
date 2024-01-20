@@ -2,10 +2,13 @@
   "name": "dtsc",
   "description": "Generate bundled TypeScript declaration files",
   "version": "2.3.0",
+  "type": "module",
   "main": "lib/index.js",
+  "types": "lib/index.d.ts",
   "bin": "lib/bin.js",
   "files": [
-    "lib"
+    "lib",
+    "src"
   ],
   "engines": {
     "node": "^14.18.0 || >=16.0.0"

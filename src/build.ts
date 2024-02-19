@@ -44,7 +44,7 @@ async function getModules(path: string, prefix = ''): Promise<string[]> {
 export async function build(cwd: string, args: string[] = []) {
   const require = createRequire(cwd + '/')
   const config = await load(cwd, args)
-  const outFile = config.get('outFile')
+  const outFile = config.get('outFile', 'lib/index.d.ts')
   if (!outFile) throw new Error('outFile is required')
   const rootDir = config.get('rootDir')
   if (!rootDir) throw new Error('rootDir is required')
@@ -60,8 +60,8 @@ export async function build(cwd: string, args: string[] = []) {
   const { inline = [], exclude = [] } = config.dtsc || {}
   files.push(...inline)
   for (const extra of inline) {
-    const meta = require(extra + '/package.json')
-    const filename = join(extra, meta.typings || meta.types)
+    const manifest = require(extra + '/package.json')
+    const filename = join(extra, manifest.typings || manifest.types)
     const content = await fs.readFile(require.resolve(filename), 'utf8')
     source += [`declare module "${extra}" {`, ...content.split('\n')].join('\n    ') + '\n}\n'
   }

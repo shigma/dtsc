@@ -9,7 +9,7 @@ export interface BundleOptions {
 export async function bundle(options: BundleOptions) {
   const { files, source, exclude = [] } = options
 
-  const moduleRE = `["'](${files.join('|')})["']`
+  const moduleRE = `["'](${files.join('|')})(\\.[jt]s)?["']`
   const internalImport = new RegExp('import\\(' + moduleRE + '\\)\\.', 'g')
   const internalExport = new RegExp('^ {4}export .+ from ' + moduleRE + ';$')
   const internalInject = new RegExp('^declare module ' + moduleRE + ' {$')
@@ -73,6 +73,8 @@ export async function bundle(options: BundleOptions) {
       })
     } else if (line.startsWith('///')) {
       prolog += line + EOL
+    } else if (line.startsWith('#!')) {
+      return false
     } else if (line.startsWith('    export default ')) {
       if (current === 'index') return true
       if (line.endsWith('{')) isExportDefault = true

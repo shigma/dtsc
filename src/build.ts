@@ -66,6 +66,8 @@ export async function build(cwd: string, args: string[] = []) {
     source += [`declare module "${extra}" {`, ...content.split('\n')].join('\n    ') + '\n}\n'
   }
 
-  const output = await bundle({ files, source, exclude })
+  const manifest = require(cwd + '/package.json')
+  const dependencies = Object.keys(manifest.dependencies || {})
+  const output = await bundle({ files, source, exclude, dependencies })
   await fs.writeFile(destpath, output)
 }

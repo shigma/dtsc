@@ -4,6 +4,7 @@ export interface BundleOptions {
   files: string[]
   source: string
   exclude?: string[]
+  dependencies?: string[]
 }
 
 export async function bundle(options: BundleOptions) {
@@ -45,25 +46,28 @@ export async function bundle(options: BundleOptions) {
       //                               ^1
       // import module directly
       if (!files.includes(cap[1])) prolog += line.trimStart() + EOL
-    } else if ((cap = /^ {4}import \* as (.+) from ["'](.+)["'];$/.exec(line))) {
-      //                                 ^1            ^2
+    } else if ((cap = /^ {4}import (type )?\* as (.+) from ["'](.+)["'];$/.exec(line))) {
+      //                           ^1            ^2            ^3
       // import as namespace
-      if (files.includes(cap[2])) {
+      if (files.includes(cap[3])) {
         // mark internal module as namespace
-        namespaceMap[cap[2]] = cap[1]
+        namespaceMap[cap[3]] = cap[2]
       } else if (!prolog.includes(line.trimStart())) {
         // preserve external module imports once
         prolog += line.trimStart() + EOL
       }
-    } else if ((cap = /^ {4}import (\S*)(?:, *)?(?:\{(.*)\})? from ["'](.+)["'];$/.exec(line))) {
-      //                           ^1                ^2                ^3
+    } else if ((cap = /^ {4}import (type )?(\S*)(?:, *)?(?:\{(.*)\})? from ["'](.+)["'];$/.exec(line))) {
+      //                           ^1      ^2                ^3                ^4
       // ignore internal imports
-      if (files.includes(cap[3])) return
+      if (files.includes(cap[4])) return
       // handle aliases from external imports
-      const map = importMap[cap[3]] ||= {}
-      cap[1] && Object.defineProperty(map, 'default', { value: cap[1] })
-      cap[2] && cap[2].split(',').map((part) => {
+      const map = importMap[cap[4]] ||= {}
+      cap[2] && Object.defineProperty(map, 'default', { value: cap[2] })
+      cap[3] && cap[3].split(',').map((part) => {
         part = part.trim()
+        if (part.startsWith('type ')) {
+          part = part.slice(5)
+        }
         if (part.includes(' as ')) {
           const [left, right] = part.split(' as ')
           map[left.trimEnd()] = right.trimStart()
@@ -97,7 +101,7 @@ export async function bundle(options: BundleOptions) {
       return line
         .replace(internalImport, '')
         .replace(/import\("index"\)/g, "import('.')")
-        .replace(/^(module|class|namespace|const|global) /, (_) => `declare ${_}`)
+        .replace(/^(module|class|namespace|const|global|function|interface) /, (_) => `declare ${_}`)
     } else {
       return ''
     }

@@ -1,7 +1,7 @@
 {
   "name": "dtsc",
   "description": "Generate bundled TypeScript declaration files",
-  "version": "3.0.4",
+  "version": "3.1.0",
   "type": "module",
   "main": "lib/index.js",
   "types": "lib/index.d.ts",
@@ -24,13 +24,13 @@
     "build": "tsc -b"
   },
   "devDependencies": {
-    "@types/node": "^20.10.2",
-    "typescript": "^5.3.2"
+    "@types/node": "^22.7.5",
+    "typescript": "^5.6.2"
   },
   "peerDependencies": {
     "typescript": "*"
   },
   "dependencies": {
-    "tsconfig-utils": "^4.0.5"
+    "tsconfig-utils": "^4.1.1"
   }
 }

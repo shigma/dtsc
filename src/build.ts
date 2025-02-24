@@ -44,7 +44,7 @@ async function getModules(path: string, prefix = ''): Promise<string[]> {
 export async function build(cwd: string, args: string[] = []) {
   const require = createRequire(cwd + '/')
   const config = await load(cwd, args)
-  const outFile = config.get('outFile', 'lib/index.d.ts')
+  const outFile = config.get('outFile')
   if (!outFile) throw new Error('outFile is required')
   const rootDir = config.get('rootDir')
   if (!rootDir) throw new Error('rootDir is required')

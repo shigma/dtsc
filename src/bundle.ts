@@ -113,7 +113,7 @@ export async function bundle(options: BundleOptions) {
       return identifier ? identifier = '' : '}'
     } else {
       if (identifier) line = line.slice(4)
-      return line.replace(/^((class|namespace|interface) .+ \{)$/, (_) => `export ${_}`)
+      return line.replace(/^((abstract class|class|namespace|interface) .+ \{)$/, (_) => `export ${_}`)
     }
   }).filter(line => line).join(EOL)
 
